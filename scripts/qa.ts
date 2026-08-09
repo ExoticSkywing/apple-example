@@ -11,8 +11,8 @@ interface Result {
   viewport: string;
   consoleErrors: string[];
   pageErrors: string[];
-  selectedMode: string | null;
-  activatedStatus: string | null;
+  mode: string | null;
+  card: { x: number; y: number; width: number; height: number } | null;
   actionKey: { x: number; y: number; width: number; height: number } | null;
   screenshot: string;
 }
@@ -20,52 +20,52 @@ interface Result {
 const results: Result[] = [];
 
 const exercise = async (browser: Browser, browserName: string, width: number, height: number): Promise<void> => {
-  const page: Page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 1, hasTouch: width < 760 });
+  const page: Page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 1, hasTouch: width < 735 });
   const consoleErrors: string[] = [];
   const pageErrors: string[] = [];
-  page.on('console', (message) => {
-    if (message.type() === 'error') consoleErrors.push(message.text());
-  });
+  page.on('console', (message) => { if (message.type() === 'error') consoleErrors.push(message.text()); });
   page.on('pageerror', (error) => pageErrors.push(error.message));
 
   await page.goto(baseURL, { waitUntil: 'networkidle' });
-  await page.locator('[data-phone-wrap]').waitFor({ state: 'visible' });
-  await page.locator('[data-mode="translate"]').click();
-  await page.locator('[data-mode="recognize"]').click();
+  await page.locator('[data-viewer]').waitFor({ state: 'visible' });
+  await page.waitForTimeout(3100);
 
+  const card = await page.locator('[data-card]').boundingBox();
   const actionKey = await page.locator('[data-action-key]').boundingBox();
-  if (!actionKey) throw new Error(`${browserName} ${width}x${height}: action key not visible`);
+  if (!card || !actionKey) throw new Error(`${browserName} ${width}x${height}: viewer targets missing`);
+  if (card.x < 0 || card.x + card.width > width) throw new Error(`${browserName} ${width}x${height}: expanded card outside viewport`);
+  if (actionKey.x < 0 || actionKey.y < 0 || actionKey.x + actionKey.width > width || actionKey.y + actionKey.height > height) {
+    throw new Error(`${browserName} ${width}x${height}: Action button outside viewport`);
+  }
 
-  await page.mouse.move(actionKey.x + actionKey.width / 2, actionKey.y + actionKey.height / 2);
-  await page.mouse.down();
-  await page.waitForTimeout(820);
-  await page.mouse.up();
-  await page.locator('[data-status]').filter({ hasText: 'Listening for music' }).waitFor();
+  await page.locator('[data-next]').click();
+  await page.locator('[data-prev]').click();
+  await page.locator('[data-close]').click();
+  await page.locator('[data-open]').click();
+  await page.waitForTimeout(2500);
 
-  const fileName = `clone-${browserName}-${width}x${height}-activated.png`;
+  const fileName = `clone-v2-${browserName}-${width}x${height}-action.png`;
   const screenshot = path.join(outDir, fileName);
-  await page.screenshot({ path: screenshot, fullPage: true });
-
+  await page.screenshot({ path: screenshot });
   results.push({
     browser: browserName,
     viewport: `${width}x${height}`,
     consoleErrors,
     pageErrors,
-    selectedMode: await page.locator('.mode-button.is-selected').getAttribute('data-mode'),
-    activatedStatus: await page.locator('[data-status]').textContent(),
+    mode: await page.locator('[data-page]').getAttribute('data-mode'),
+    card,
     actionKey,
     screenshot,
   });
-
   await page.close();
 };
 
 for (const [browserName, launcher] of [['chromium', chromium], ['firefox', firefox]] as const) {
   const browser = await launcher.launch({ headless: true });
   try {
-    await exercise(browser, browserName, 1366, 768);
-    await exercise(browser, browserName, 390, 720);
     await exercise(browser, browserName, 390, 844);
+    await exercise(browser, browserName, 390, 720);
+    await exercise(browser, browserName, 1366, 768);
   } finally {
     await browser.close();
   }
@@ -75,6 +75,5 @@ const failures = results.flatMap((result) => [
   ...result.consoleErrors.map((error) => `${result.browser} ${result.viewport} console: ${error}`),
   ...result.pageErrors.map((error) => `${result.browser} ${result.viewport} pageerror: ${error}`),
 ]);
-
 console.log(JSON.stringify({ baseURL, results, failures }, null, 2));
 if (failures.length > 0) process.exitCode = 1;

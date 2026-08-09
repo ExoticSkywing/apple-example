@@ -1,256 +1,196 @@
 import './style.css';
 
-type ActionMode = 'silent' | 'translate' | 'recognize' | 'shortcut' | 'magnify';
+type Mode = 'silent' | 'translate' | 'recognize' | 'shortcut' | 'magnify';
 
-interface ModeDefinition {
+interface ModeView {
   label: string;
-  eyebrow: string;
-  status: string;
   icon: string;
+  tone: string;
 }
-
-const modes: Record<ActionMode, ModeDefinition> = {
-  silent: {
-    label: 'Silent mode',
-    eyebrow: 'Silent',
-    status: 'Silent mode on',
-    icon: 'bell',
-  },
-  translate: {
-    label: 'Translation',
-    eyebrow: 'Translate',
-    status: 'Ready to translate',
-    icon: 'translate',
-  },
-  recognize: {
-    label: 'Music recognition',
-    eyebrow: 'Listening…',
-    status: 'Listening for music',
-    icon: 'recognize',
-  },
-  shortcut: {
-    label: 'Shortcuts',
-    eyebrow: 'Shortcut',
-    status: 'Shortcut launched',
-    icon: 'shortcut',
-  },
-  magnify: {
-    label: 'Magnifier',
-    eyebrow: 'Magnifier',
-    status: 'Magnifier opened',
-    icon: 'magnify',
-  },
-};
 
 const icon = (name: string): string => {
   const paths: Record<string, string> = {
-    plus: '<path d="M12 5v14M5 12h14"/>',
-    bell: '<path d="M8.2 17h7.6M10 20h4M6.6 15.7h10.8c-1.1-1.2-1.8-2.8-1.8-4.5V9a3.6 3.6 0 0 0-7.2 0v2.2c0 1.7-.7 3.3-1.8 4.5Z"/><path d="M4 4l16 16"/>',
-    translate: '<path d="M4 5h10v9H8l-4 3V5Z"/><path d="M11 10h9v8h-4l-3 2v-6"/><path d="M7 8h4M9 6v4M15.5 13.5h2M16.5 12.5v3"/>',
+    bell: '<path d="M8.3 17.4h7.4M9.4 20h5.2M5.8 14.9h12.4c-1.5-1.7-2.2-3.5-2.2-5.5A4 4 0 0 0 9.3 6.5c-.8.8-1.3 1.8-1.3 2.9 0 2-.7 3.8-2.2 5.5Z"/><path d="M4 4l16 16"/>',
+    translate: '<path d="M4.5 5.5h9v7h-5l-3.8 3v-3h-.2v-7Z"/><path d="M10.5 11.5h9v7h-.2v3l-3.8-3h-5v-7Z"/><path d="M7 8.7h4M9 7v3.4M14 14.2h3.1M14.7 16.6l.9-2.4.9 2.4"/>',
     recognize: '<path d="M8.1 14.7a4.7 4.7 0 0 1 0-6.6l2.1-2.1a4.7 4.7 0 0 1 6.6 0M15.9 9.3a4.7 4.7 0 0 1 0 6.6L13.8 18a4.7 4.7 0 0 1-6.6 0"/><path d="M9.2 12.8l5.6-5.6M9.2 16.8l5.6-5.6"/>',
-    shortcut: '<rect x="4" y="5" width="7" height="5" rx="2.5"/><rect x="13" y="5" width="7" height="5" rx="2.5"/><rect x="4" y="14" width="7" height="5" rx="2.5"/><rect x="13" y="14" width="7" height="5" rx="2.5"/>',
-    magnify: '<circle cx="11" cy="11" r="6"/><path d="m16 16 4 4M11 8v6M8 11h6"/>',
-    chevronDown: '<path d="m7 9 5 5 5-5"/>',
-    chevronUp: '<path d="m7 15 5-5 5 5"/>',
+    shortcut: '<rect x="5" y="5" width="5" height="5" rx="2"/><rect x="14" y="5" width="5" height="5" rx="2"/><rect x="5" y="14" width="5" height="5" rx="2"/><rect x="14" y="14" width="5" height="5" rx="2"/>',
+    magnify: '<circle cx="10.5" cy="10.5" r="5.8"/><path d="m15 15 4.5 4.5M10.5 8v5M8 10.5h5"/>',
+    chevronLeft: '<path d="m14.5 6-6 6 6 6"/>',
+    chevronRight: '<path d="m9.5 6 6 6-6 6"/>',
+    close: '<path d="m7 7 10 10M17 7 7 17"/>',
   };
-
   return `<svg viewBox="0 0 24 24" aria-hidden="true">${paths[name] ?? ''}</svg>`;
 };
 
-const app = document.querySelector<HTMLDivElement>('#app');
-if (!app) throw new Error('App root not found');
+const modes: Record<Mode, ModeView> = {
+  silent: { label: 'Silent mode', icon: 'bell', tone: '#ff453a' },
+  translate: { label: 'Translation', icon: 'translate', tone: '#8ee8de' },
+  recognize: { label: 'Music recognition', icon: 'recognize', tone: '#0a84ff' },
+  shortcut: { label: 'Shortcuts', icon: 'shortcut', tone: '#bf5af2' },
+  magnify: { label: 'Magnifier', icon: 'magnify', tone: '#ff9f0a' },
+};
 
-app.innerHTML = `
-  <main class="page-shell">
-    <header class="topbar" aria-label="Project navigation">
-      <a class="brand" href="#stage" aria-label="Action button interaction study">Action button</a>
-      <p class="study-label">Interaction study</p>
-      <button class="replay-top" type="button" data-replay>Replay</button>
-    </header>
+const order: Mode[] = ['silent', 'translate', 'recognize', 'shortcut', 'magnify'];
 
-    <section class="stage" id="stage" aria-labelledby="feature-title">
-      <div class="copy-zone">
-        <p class="kicker">A direct path from intent to result</p>
-        <h1 id="feature-title">Action button.</h1>
-        <p class="intro">A customizable fast track to your favorite feature. Long press to launch the action you want — Silent mode, Translation, Shortcuts, and more.</p>
+document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
+  <main class="page" data-page data-mode="recognize" data-scope="action-button">
+    <div class="mobile-module">
+    <nav class="localnav" aria-label="iPhone 17 local navigation">
+      <strong class="localnav__title">iPhone 17</strong>
+      <div class="localnav__actions">
+        <button class="localnav__explore" type="button">Explore</button>
+        <button class="localnav__buy" type="button">Buy</button>
+      </div>
+    </nav>
 
-        <div class="feature-card" data-card>
-          <button class="feature-card__toggle" type="button" aria-expanded="true" data-card-toggle>
-            <span class="plus-icon">${icon('plus')}</span>
-            <span>Action button</span>
-          </button>
-          <div class="feature-card__content" data-card-content>
-            <p><strong>Long press the highlighted button.</strong> The screen responds immediately, so the connection between hardware and feature is never ambiguous.</p>
-          </div>
-        </div>
-
-        <div class="mode-selector" role="group" aria-label="Choose an Action button feature">
-          ${(Object.entries(modes) as [ActionMode, ModeDefinition][]).map(([key, mode]) => `
-            <button class="mode-button${key === 'recognize' ? ' is-selected' : ''}" type="button" data-mode="${key}" aria-pressed="${key === 'recognize'}" aria-label="${mode.label}">
-              ${icon(mode.icon)}
-              <span>${mode.label}</span>
-            </button>
+    <section class="product-viewer" aria-label="Action button product viewer" data-viewer>
+      <div class="media-stage" aria-hidden="true">
+        <div class="function-rail" data-function-rail>
+          ${order.map((mode) => `
+            <span class="rail-icon rail-icon--${mode}" data-rail-mode="${mode}">
+              ${icon(modes[mode].icon)}
+            </span>
           `).join('')}
         </div>
+        <span class="hardware-link"></span>
 
-        <p class="instruction" data-instruction><span class="instruction-dot"></span> Press and hold the side button</p>
-      </div>
+        <div class="phone" data-phone>
+          <div class="phone__metal"></div>
+          <button class="action-key" data-action-key type="button" aria-label="Replay Action button animation"><span></span></button>
+          <span class="volume-key volume-key--up"></span>
+          <span class="volume-key volume-key--down"></span>
 
-      <div class="demo-zone" aria-label="Interactive phone demonstration">
-        <div class="connector" aria-hidden="true">
-          <span class="connector-rail">
-            <i class="connector-mode connector-mode--silent">${icon('bell')}</i>
-            <i class="connector-mode connector-mode--translate">${icon('translate')}</i>
-            <i class="connector-mode connector-mode--recognize">${icon('recognize')}</i>
-            <i class="connector-mode connector-mode--shortcut">${icon('shortcut')}</i>
-            <i class="connector-mode connector-mode--magnify">${icon('magnify')}</i>
-          </span>
-          <span class="connector-line"></span>
-        </div>
-        <div class="phone-wrap" data-phone-wrap>
-          <div class="phone" data-phone>
-            <div class="phone-edge phone-edge--top"></div>
-            <button class="action-key" type="button" aria-label="Press and hold Action button" data-action-key><span></span></button>
-            <span class="volume-key volume-key--up" aria-hidden="true"></span>
-            <span class="volume-key volume-key--down" aria-hidden="true"></span>
-            <div class="screen">
-              <div class="wallpaper" aria-hidden="true">
-                <span class="ray ray--1"></span><span class="ray ray--2"></span><span class="ray ray--3"></span><span class="ray ray--4"></span><span class="ray ray--5"></span>
-              </div>
-              <time class="lock-time" datetime="09:41">9:41</time>
-              <div class="island" data-island>
-                <span class="island__icon" data-island-icon>${icon('recognize')}</span>
-                <span class="island__label" data-island-label>Listening…</span>
-                <span class="wave" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
-                <span class="island__close" aria-hidden="true">×</span>
-              </div>
-              <div class="success-toast" role="status" aria-live="polite" data-status>Listening for music</div>
+          <div class="screen">
+            <div class="wallpaper"></div>
+            <div class="lock-date">Tue Apr 1</div>
+            <div class="lock-time"><span>9</span><span>:</span><span>41</span></div>
+            <div class="dynamic-island" data-island>
+              <span class="island-icon" data-island-icon>${icon('recognize')}</span>
+              <span class="island-copy" data-island-copy>Listening...</span>
+              <span class="island-wave"><i></i><i></i><i></i><i></i></span>
+              <span class="island-dismiss">${icon('close')}</span>
             </div>
+            <span class="screen-orb" data-screen-orb>${icon('translate')}</span>
           </div>
         </div>
-        <div class="hold-ring" aria-hidden="true" data-hold-ring><span></span></div>
       </div>
 
-      <div class="tour-controls" aria-label="Demo controls">
-        <button type="button" data-replay aria-label="Replay demonstration">${icon('chevronUp')}</button>
-        <button type="button" data-replay aria-label="Replay demonstration">${icon('chevronDown')}</button>
-      </div>
+      <button class="viewer-close" data-close type="button" aria-label="Close Action button detail">
+        ${icon('close')}
+      </button>
+
+      <section class="feature-deck" data-deck aria-label="Action button description carousel">
+        <article class="feature-card" data-card>
+          <p><strong>Action button.</strong><br><span data-card-copy>A customizable fast track to your favorite feature. Long press to launch the action you want — Silent mode, Translation, Shortcuts, and more.</span></p>
+        </article>
+        <button class="deck-arrow deck-arrow--prev" data-prev type="button" aria-label="Previous Action button animation state">${icon('chevronLeft')}</button>
+        <button class="deck-arrow deck-arrow--next" data-next type="button" aria-label="Next Action button animation state">${icon('chevronRight')}</button>
+      </section>
+
+      <button class="collapsed-pill" data-open type="button" aria-label="Open Action button detail">
+        <span class="plus">+</span><span>Action button</span>
+      </button>
+      <p class="sr-status" data-status aria-live="polite">Music recognition selected</p>
     </section>
+    </div>
   </main>
 `;
 
-const root = document.documentElement;
-const status = document.querySelector<HTMLElement>('[data-status]');
-const instruction = document.querySelector<HTMLElement>('[data-instruction]');
-const islandLabel = document.querySelector<HTMLElement>('[data-island-label]');
-const islandIcon = document.querySelector<HTMLElement>('[data-island-icon]');
-const actionKey = document.querySelector<HTMLButtonElement>('[data-action-key]');
-const phone = document.querySelector<HTMLElement>('[data-phone]');
-const holdRing = document.querySelector<HTMLElement>('[data-hold-ring]');
-const card = document.querySelector<HTMLElement>('[data-card]');
-const cardToggle = document.querySelector<HTMLButtonElement>('[data-card-toggle]');
-const cardContent = document.querySelector<HTMLElement>('[data-card-content]');
+const page = document.querySelector<HTMLElement>('[data-page]')!;
+const viewer = document.querySelector<HTMLElement>('[data-viewer]')!;
+const card = document.querySelector<HTMLElement>('[data-card]')!;
+const status = document.querySelector<HTMLElement>('[data-status]')!;
+const islandIcon = document.querySelector<HTMLElement>('[data-island-icon]')!;
+const islandCopy = document.querySelector<HTMLElement>('[data-island-copy]')!;
+const actionKey = document.querySelector<HTMLButtonElement>('[data-action-key]')!;
+const closeButton = document.querySelector<HTMLButtonElement>('[data-close]')!;
+const openButton = document.querySelector<HTMLButtonElement>('[data-open]')!;
 
-let activeMode: ActionMode = 'recognize';
-let holdTimer = 0;
-let holdStart = 0;
-let isHolding = false;
-let activated = false;
+let modeIndex = 2;
+let timeline: number[] = [];
+let gestureStart = 0;
 
-const setMode = (mode: ActionMode): void => {
-  activeMode = mode;
-  root.dataset.mode = mode;
-  document.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach((button) => {
-    const selected = button.dataset.mode === mode;
-    button.classList.toggle('is-selected', selected);
-    button.setAttribute('aria-pressed', String(selected));
-  });
-  if (islandLabel) islandLabel.textContent = modes[mode].eyebrow;
-  if (islandIcon) islandIcon.innerHTML = icon(modes[mode].icon);
-  if (status) status.textContent = activated ? modes[mode].status : 'Hold to launch';
-  if (instruction) instruction.lastChild!.textContent = ` Press and hold for ${modes[mode].label}`;
+const clearTimeline = (): void => {
+  timeline.forEach(window.clearTimeout);
+  timeline = [];
 };
 
-const cancelHold = (): void => {
-  window.clearTimeout(holdTimer);
-  isHolding = false;
-  phone?.classList.remove('is-pressing');
-  holdRing?.classList.remove('is-holding');
+const setMode = (mode: Mode, announce = true): void => {
+  modeIndex = order.indexOf(mode);
+  page.dataset.mode = mode;
+  document.documentElement.style.setProperty('--mode-tone', modes[mode].tone);
+  islandIcon.innerHTML = icon(modes[mode].icon);
+  islandCopy.textContent = mode === 'silent'
+    ? 'Silent'
+    : mode === 'translate'
+      ? 'Listening'
+      : mode === 'recognize'
+        ? 'Listening...'
+        : mode === 'shortcut'
+          ? 'Running shortcut'
+          : 'Magnifier';
+  if (announce) status.textContent = `${modes[mode].label} selected`;
 };
 
-const activate = (): void => {
-  if (!isHolding) return;
-  activated = true;
-  cancelHold();
-  phone?.classList.add('is-active');
-  actionKey?.classList.add('is-confirmed');
-  if (status) status.textContent = modes[activeMode].status;
-  if (instruction) instruction.innerHTML = '<span class="instruction-dot is-complete"></span> Launched — the on-screen response confirms it';
-  window.setTimeout(() => actionKey?.classList.remove('is-confirmed'), 900);
-};
-
-const beginHold = (event: PointerEvent): void => {
-  if (event.button !== 0 && event.pointerType === 'mouse') return;
-  event.preventDefault();
-  actionKey?.setPointerCapture(event.pointerId);
-  activated = false;
-  isHolding = true;
-  holdStart = performance.now();
-  phone?.classList.remove('is-active');
-  phone?.classList.add('is-pressing');
-  holdRing?.classList.add('is-holding');
-  if (status) status.textContent = 'Keep holding…';
-  if (instruction) instruction.innerHTML = '<span class="instruction-dot"></span> Keep holding until the screen responds';
-  holdTimer = window.setTimeout(activate, 720);
-};
-
-const endHold = (): void => {
-  const heldFor = performance.now() - holdStart;
-  if (isHolding && heldFor < 720) {
-    cancelHold();
-    phone?.classList.remove('is-active');
-    if (status) status.textContent = 'Hold a little longer';
-    if (instruction) instruction.innerHTML = '<span class="instruction-dot is-warning"></span> Released early — press and hold again';
-  }
+const pulseKey = (): void => {
+  actionKey.classList.remove('is-pressed');
+  void actionKey.offsetWidth;
+  actionKey.classList.add('is-pressed');
 };
 
 const replay = (): void => {
-  cancelHold();
-  activated = false;
-  phone?.classList.remove('is-active');
-  actionKey?.classList.remove('is-confirmed');
-  if (status) status.textContent = 'Hold to launch';
-  if (instruction) instruction.innerHTML = '<span class="instruction-dot"></span> Press and hold the side button';
-  const phoneWrap = document.querySelector<HTMLElement>('[data-phone-wrap]');
-  phoneWrap?.classList.remove('replaying');
-  void phoneWrap?.offsetWidth;
-  phoneWrap?.classList.add('replaying');
+  clearTimeline();
+  viewer.classList.remove('is-collapsed');
+  closeButton.focus({ preventScroll: true });
+  card.classList.add('is-entering');
+  setMode('silent', false);
+  pulseKey();
+  timeline.push(window.setTimeout(() => {
+    setMode('translate', false);
+    pulseKey();
+  }, 1050));
+  timeline.push(window.setTimeout(() => {
+    setMode('recognize');
+    pulseKey();
+  }, 2250));
+  timeline.push(window.setTimeout(() => card.classList.remove('is-entering'), 2650));
 };
 
-document.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach((button) => {
-  button.addEventListener('click', () => setMode(button.dataset.mode as ActionMode));
+const seek = (direction: -1 | 1): void => {
+  clearTimeline();
+  const nextIndex = (modeIndex + direction + order.length) % order.length;
+  card.classList.remove('swipe-left', 'swipe-right');
+  void card.offsetWidth;
+  card.classList.add(direction > 0 ? 'swipe-left' : 'swipe-right');
+  setMode(order[nextIndex]);
+  pulseKey();
+  timeline.push(window.setTimeout(() => card.classList.remove('swipe-left', 'swipe-right'), 430));
+};
+
+document.querySelector<HTMLButtonElement>('[data-prev]')!.addEventListener('click', () => seek(-1));
+document.querySelector<HTMLButtonElement>('[data-next]')!.addEventListener('click', () => seek(1));
+actionKey.addEventListener('click', replay);
+
+closeButton.addEventListener('click', () => {
+  clearTimeline();
+  viewer.classList.add('is-collapsed');
+  status.textContent = 'Action button detail closed';
+  openButton.focus({ preventScroll: true });
 });
+openButton.addEventListener('click', replay);
 
-actionKey?.addEventListener('pointerdown', beginHold);
-actionKey?.addEventListener('pointerup', endHold);
-actionKey?.addEventListener('pointercancel', cancelHold);
-actionKey?.addEventListener('lostpointercapture', () => {
-  if (isHolding) endHold();
+viewer.addEventListener('pointerdown', (event) => {
+  gestureStart = event.clientX;
 });
-actionKey?.addEventListener('contextmenu', (event) => event.preventDefault());
-
-document.querySelectorAll<HTMLButtonElement>('[data-replay]').forEach((button) => button.addEventListener('click', replay));
-
-cardToggle?.addEventListener('click', () => {
-  const isExpanded = cardToggle.getAttribute('aria-expanded') === 'true';
-  cardToggle.setAttribute('aria-expanded', String(!isExpanded));
-  card?.classList.toggle('is-collapsed', isExpanded);
-  if (cardContent) cardContent.hidden = isExpanded;
+viewer.addEventListener('pointerup', (event) => {
+  const delta = event.clientX - gestureStart;
+  if (Math.abs(delta) > 54 && !viewer.classList.contains('is-collapsed')) seek(delta < 0 ? 1 : -1);
 });
 
 window.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape') replay();
+  if (event.key === 'ArrowLeft') seek(-1);
+  if (event.key === 'ArrowRight') seek(1);
+  if (event.key === 'Escape') closeButton.click();
 });
 
-setMode(activeMode);
-window.setTimeout(() => document.querySelector<HTMLElement>('[data-phone-wrap]')?.classList.add('is-ready'), 80);
+window.setTimeout(replay, 250);

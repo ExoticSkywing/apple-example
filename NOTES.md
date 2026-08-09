@@ -62,10 +62,17 @@ npm run dev -- --port 4173
 - QA: `scripts/qa.ts`
 - 官方参考（内部、不得部署）: `RECON/reference-only/`
 
+## 本轮纠偏（用户真机基线）
+- 用户真机指出首版与 Apple 原版是两个东西；判断成立。首版把 Product Viewer 错做成了自创教程首屏。
+- 已整段删除首版的 Hero 标题、Replay、自创教程卡、横向五图标和绿色提示。
+- 当前实现范围改为用户指定的完整横向 Product Viewer：localnav、手机近景、Action button 功能轨、灵动岛状态、右上关闭按钮、底部展开药丸说明卡、左右切换箭头及滑动/点击状态切换。
+- `RECON/user-baselines/apple-official-mobile-target.jpg` 是用户提供的 Apple 真机截图，优先级高于自动视觉描述。
+
 ## 验证
 - [x] `npm run check`：ESLint、TypeScript、Vite build 全部通过
-- [x] `npm run qa`：Chromium + Firefox，`1366×768`、`390×720`、`390×844`；选择功能 → 长按物理按钮 → 成功反馈；console/page error 都为 0
-- [x] 已生成原站和克隆站截图证据（`RECON/screenshots/`）
-- [x] 最终阻断项视觉 QA：桌面、移动、Gecko 均通过
-- 未做: 公开部署与远程 CDN；用户未指定新项目固定端口
+- [x] `npm run qa`：Chromium + Firefox，`1366×768`、`390×720`、`390×844`；左右切换 → 关闭收起 → 重新展开 → 自动回到 Action button；console/page error 都为 0
+- [x] 药丸卡在 Chromium/Gecko 均固定 `316×178`（390px 视口），不存在 Gecko 多 25px 的折行漂移
+- [x] 已生成新候选截图证据（`RECON/screenshots/clone-v2-*`）
+- [x] 最终结构门禁：与用户基线属于同一种 Product Viewer；首版自创教程元素已消失
+- 待重新上线到用户已批准的远程测试端口 `44120`；上线前先保持旧错误版本离线。
 - 人类最终视觉批准仍由用户完成，代理不自行宣布“完美复刻”。

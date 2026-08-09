@@ -3,3 +3,4 @@ dist/
 .DS_Store
 *.tsbuildinfo
 RECON/reference-only/
+RECON/user-baselines/current-failed.png
