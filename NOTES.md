@@ -82,5 +82,5 @@ npm run dev -- --port 4173
 - [x] 药丸卡在 Chromium/Gecko 均固定 `316×178`（390px 视口），不存在 Gecko 多 25px 的折行漂移
 - [x] 已生成新版官方媒体候选截图证据（`RECON/screenshots/clone-v3-official-media-*`）
 - [x] 最终结构门禁：与用户基线属于同一种 Product Viewer；首版自创教程元素已消失
-- 旧 CSS 假模型版本已撤下；新版完成公网复验后再重新上线 `44120`。
+- [x] 新版已重新上线 `44120`；公网页面与媒体均 HTTP 200，并从公网 URL 完成 Chromium/Firefox 全套 QA。
 - 人类最终视觉批准仍由用户完成，代理不自行宣布“完美复刻”。
