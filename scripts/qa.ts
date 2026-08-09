@@ -13,6 +13,34 @@ const assert = (condition: boolean, message: string): void => {
   if (!condition) failures.push(message);
 };
 
+type PixelSamples = {
+  screen: [number, number, number];
+  island: [number, number, number];
+};
+
+const sampleVideoPixels = async (page: Page, currentTime: number): Promise<PixelSamples> => {
+  return page.locator('[data-media]').evaluate(async (element: HTMLVideoElement, time) => {
+    element.pause();
+    element.currentTime = time;
+    await new Promise<void>((resolve) => {
+      element.addEventListener('seeked', () => resolve(), { once: true });
+      window.setTimeout(resolve, 500);
+    });
+    const canvas = document.createElement('canvas');
+    canvas.width = element.videoWidth;
+    canvas.height = element.videoHeight;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Missing 2d context');
+    context.drawImage(element, 0, 0);
+    const screen = context.getImageData(600, 700, 1, 1).data;
+    const island = context.getImageData(600, 270, 1, 1).data;
+    return {
+      screen: [screen[0], screen[1], screen[2]],
+      island: [island[0], island[1], island[2]],
+    };
+  }, currentTime);
+};
+
 const exercise = async (browserName: string, browser: Browser, width: number, height: number): Promise<void> => {
   const context = await browser.newContext({
     viewport: { width, height },
@@ -38,6 +66,16 @@ const exercise = async (browserName: string, browser: Browser, width: number, he
     videoHeight: element.videoHeight,
     currentTime: element.currentTime,
   }));
+
+  const sampleTimes = [0.8, 2.4, 4.5];
+  const pixelSamples = [];
+  for (const time of sampleTimes) pixelSamples.push(await sampleVideoPixels(page, time));
+  const distance = (a: [number, number, number], b: [number, number, number]): number =>
+    Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+  assert(distance(pixelSamples[0].screen, pixelSamples[1].screen) > 8, `${browserName} ${width}x${height}: first wallpaper transition missing`);
+  assert(distance(pixelSamples[1].screen, pixelSamples[2].screen) > 8, `${browserName} ${width}x${height}: second wallpaper transition missing`);
+  assert(distance(pixelSamples[0].island, pixelSamples[1].island) < 12, `${browserName} ${width}x${height}: island changed during wallpaper switch`);
+  assert(distance(pixelSamples[1].island, pixelSamples[2].island) < 12, `${browserName} ${width}x${height}: island changed during wallpaper switch`);
 
   await page.locator('[data-replay]').last().click();
   await page.waitForTimeout(900);
@@ -93,7 +131,7 @@ const exercise = async (browserName: string, browser: Browser, width: number, he
 
   const file = path.join(evidence, `clone-v3-official-media-${browserName}-${width}x${height}.png`);
   await page.screenshot({ path: file, fullPage: false });
-  results.push({ browser: browserName, viewport: `${width}x${height}`, consoleErrors, pageErrors, mediaInfo, afterReplay, boxes, screenshot: file });
+  results.push({ browser: browserName, viewport: `${width}x${height}`, consoleErrors, pageErrors, mediaInfo, pixelSamples, afterReplay, boxes, screenshot: file });
   assert(consoleErrors.length === 0, `${browserName} ${width}x${height}: console errors ${consoleErrors.join(' | ')}`);
   assert(pageErrors.length === 0, `${browserName} ${width}x${height}: page errors ${pageErrors.join(' | ')}`);
   await context.close();

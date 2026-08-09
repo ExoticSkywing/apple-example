@@ -83,4 +83,11 @@ npm run dev -- --port 4173
 - [x] 已生成新版官方媒体候选截图证据（`RECON/screenshots/clone-v3-official-media-*`）
 - [x] 最终结构门禁：与用户基线属于同一种 Product Viewer；首版自创教程元素已消失
 - [x] 新版已重新上线 `44120`；公网页面与媒体均 HTTP 200，并从公网 URL 完成 Chromium/Firefox 全套 QA。
+
+## 壁纸响应变体
+- 基线保持在 annotated tag `baseline/action-button-official-media-v1`，本变体不覆盖该回退点。
+- 左侧官方图标轨仍按原5秒时间线自动切换；屏幕响应改为三种壁纸色族：静音阶段=石墨灰绿、翻译阶段=青绿、Shazam阶段=蓝紫。
+- 机身、实体按键、图标轨与连接线继续使用官方复合媒体像素；仅在实测屏幕发光区透视多边形内合成壁纸。
+- 动态岛/锁屏时间使用同一官方固定帧回贴，不再随左侧图标变化。QA 从视频 Canvas 采样验证三阶段屏幕颜色变化，且灵动岛采样保持一致。
+- 可重复构建脚本：`scripts/build_wallpaper_variant.py`；交付媒体：`public/media/action-button-wallpaper-switch.mp4`（880×768、30fps、5秒、150帧）。
 - 人类最终视觉批准仍由用户完成，代理不自行宣布“完美复刻”。

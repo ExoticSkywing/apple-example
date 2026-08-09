@@ -32,7 +32,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
             poster="/media/action-button-poster.jpg"
             aria-label="Action button launches Silent mode, Live Translation, and Shazam"
           >
-            <source src="/media/action-button-study.mp4" type="video/mp4">
+            <source src="/media/action-button-wallpaper-switch.mp4" type="video/mp4">
           </video>
         </div>
 
