@@ -11,7 +11,9 @@ OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 W, H = 880, 768
 SCREEN_POLY = [(440, 219), (638, 242), (651, 768), (430, 768)]
-ISLAND_POLY = [(445, 188), (637, 210), (637, 298), (444, 278)]
+# The expanded island sits much higher than the first visual estimate. Keeping
+# the wrong lower polygon left the actual Shazam/Translate pixels untouched.
+ISLAND_POLY = [(443, 136), (625, 148), (628, 236), (442, 224)]
 TIME_POLY = [(451, 286), (638, 310), (645, 676), (445, 660)]
 
 # The icon rail in the source timeline selects Silent, Translate and Shazam in
