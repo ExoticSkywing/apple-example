@@ -23,7 +23,8 @@
 
 ## 技术栈
 - Vite 7 + TypeScript 5 + 原生 HTML/CSS/SVG；没有 3D、框架或运行时依赖。
-- 复用已存在的 `apple-lotus-study` Node/Vite/Playwright 环境；未重复安装浏览器或另造工具链。
+- 复用已存在的 `apple-lotus-study` Node/Vite/Playwright 项目依赖；没有为新项目重复安装 npm 依赖树。
+- 运行 QA 时发现共享缓存缺少当前 Playwright 版本对应的 Firefox 二进制，因此只补装了一次 Firefox 153 到共享缓存；没有安装项目私有浏览器副本。
 - Node 22.22.3 / npm 10.9.8。
 
 ## 复刻前预判
