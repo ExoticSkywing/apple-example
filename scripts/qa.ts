@@ -3,77 +3,109 @@ import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 
 const baseURL = process.env.QA_URL ?? 'http://127.0.0.1:4173';
-const outDir = path.resolve('RECON/screenshots');
-await mkdir(outDir, { recursive: true });
+const evidence = path.resolve('RECON/screenshots');
+await mkdir(evidence, { recursive: true });
 
-interface Result {
-  browser: string;
-  viewport: string;
-  consoleErrors: string[];
-  pageErrors: string[];
-  mode: string | null;
-  card: { x: number; y: number; width: number; height: number } | null;
-  actionKey: { x: number; y: number; width: number; height: number } | null;
-  screenshot: string;
-}
+const failures: string[] = [];
+const results: unknown[] = [];
 
-const results: Result[] = [];
+const assert = (condition: boolean, message: string): void => {
+  if (!condition) failures.push(message);
+};
 
-const exercise = async (browser: Browser, browserName: string, width: number, height: number): Promise<void> => {
-  const page: Page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 1, hasTouch: width < 735 });
+const exercise = async (browserName: string, browser: Browser, width: number, height: number): Promise<void> => {
+  const context = await browser.newContext({
+    viewport: { width, height },
+    isMobile: width < 735,
+    hasTouch: width < 735,
+    deviceScaleFactor: width < 735 ? 2 : 1,
+    reducedMotion: 'no-preference',
+  });
+  const page: Page = await context.newPage();
   const consoleErrors: string[] = [];
   const pageErrors: string[] = [];
-  page.on('console', (message) => { if (message.type() === 'error') consoleErrors.push(message.text()); });
+  page.on('console', (entry) => { if (entry.type() === 'error') consoleErrors.push(entry.text()); });
   page.on('pageerror', (error) => pageErrors.push(error.message));
 
   await page.goto(baseURL, { waitUntil: 'networkidle' });
-  await page.locator('[data-viewer]').waitFor({ state: 'visible' });
-  await page.waitForTimeout(3100);
+  await page.locator('[data-media]').waitFor({ state: 'visible' });
+  await page.waitForTimeout(800);
 
-  const card = await page.locator('[data-card]').boundingBox();
-  const actionKey = await page.locator('[data-action-key]').boundingBox();
-  if (!card || !actionKey) throw new Error(`${browserName} ${width}x${height}: viewer targets missing`);
-  if (card.x < 0 || card.x + card.width > width) throw new Error(`${browserName} ${width}x${height}: expanded card outside viewport`);
-  if (actionKey.x < 0 || actionKey.y < 0 || actionKey.x + actionKey.width > width || actionKey.y + actionKey.height > height) {
-    throw new Error(`${browserName} ${width}x${height}: Action button outside viewport`);
+  const mediaInfo = await page.locator('[data-media]').evaluate((element: HTMLVideoElement) => ({
+    readyState: element.readyState,
+    duration: element.duration,
+    videoWidth: element.videoWidth,
+    videoHeight: element.videoHeight,
+    currentTime: element.currentTime,
+  }));
+
+  await page.locator('[data-replay]').last().click();
+  await page.waitForTimeout(900);
+  const afterReplay = await page.locator('[data-media]').evaluate((element: HTMLVideoElement) => ({
+    currentTime: element.currentTime,
+    paused: element.paused,
+  }));
+
+  await page.locator('[data-close]').click();
+  assert(await page.locator('[data-viewer]').evaluate((el) => el.classList.contains('is-collapsed')), `${browserName} ${width}x${height}: close failed`);
+  await page.locator('[data-open]').click();
+  await page.waitForTimeout(350);
+  assert(!await page.locator('[data-viewer]').evaluate((el) => el.classList.contains('is-collapsed')), `${browserName} ${width}x${height}: reopen failed`);
+
+  await page.locator('[data-media]').evaluate((element: HTMLVideoElement) => {
+    element.pause();
+    element.currentTime = Math.min(4.8, element.duration || 4.8);
+  });
+  await page.waitForFunction(() => {
+    const element = document.querySelector<HTMLVideoElement>('[data-media]');
+    return Boolean(element && element.currentTime >= 4.7);
+  });
+  await page.waitForTimeout(150);
+
+  const boxes = await page.evaluate(() => {
+    const selectors = ['.study-module', '[data-media]', '.feature-card', '.deck-arrow--prev svg', '.deck-arrow--next svg', '[data-close]'];
+    const values = selectors.map((selector) => {
+      const rect = document.querySelector(selector)?.getBoundingClientRect();
+      return rect ? { x: rect.x, y: rect.y, width: rect.width, height: rect.height, right: rect.right, bottom: rect.bottom } : null;
+    });
+    return {
+      module: values[0],
+      media: values[1],
+      card: values[2],
+      prev: values[3],
+      next: values[4],
+      close: values[5],
+    };
+  });
+
+  assert(mediaInfo.duration === 5, `${browserName} ${width}x${height}: unexpected media duration ${mediaInfo.duration}`);
+  assert(mediaInfo.videoWidth === 880 && mediaInfo.videoHeight === 768, `${browserName} ${width}x${height}: wrong video dimensions`);
+  assert(afterReplay.currentTime > 0.1, `${browserName} ${width}x${height}: media did not advance after replay`);
+  assert(boxes.media?.width === 733.328125 || Math.abs((boxes.media?.width ?? 0) - 733.333) < 0.1, `${browserName} ${width}x${height}: media CSS width drifted`);
+  assert(boxes.card?.width === 316 || width < 390, `${browserName} ${width}x${height}: card width drifted`);
+  for (const [name, box] of Object.entries({ card: boxes.card, prev: boxes.prev, next: boxes.next, close: boxes.close })) {
+    if (!box) {
+      failures.push(`${browserName} ${width}x${height}: missing ${name}`);
+      continue;
+    }
+    assert(box.x >= 0 && box.y >= 0 && box.right <= width && box.bottom <= height, `${browserName} ${width}x${height}: ${name} outside viewport`);
   }
 
-  await page.locator('[data-next]').click();
-  await page.locator('[data-prev]').click();
-  await page.locator('[data-close]').click();
-  await page.locator('[data-open]').click();
-  await page.waitForTimeout(2500);
-
-  const fileName = `clone-v2-${browserName}-${width}x${height}-action.png`;
-  const screenshot = path.join(outDir, fileName);
-  await page.screenshot({ path: screenshot });
-  results.push({
-    browser: browserName,
-    viewport: `${width}x${height}`,
-    consoleErrors,
-    pageErrors,
-    mode: await page.locator('[data-page]').getAttribute('data-mode'),
-    card,
-    actionKey,
-    screenshot,
-  });
-  await page.close();
+  const file = path.join(evidence, `clone-v3-official-media-${browserName}-${width}x${height}.png`);
+  await page.screenshot({ path: file, fullPage: false });
+  results.push({ browser: browserName, viewport: `${width}x${height}`, consoleErrors, pageErrors, mediaInfo, afterReplay, boxes, screenshot: file });
+  assert(consoleErrors.length === 0, `${browserName} ${width}x${height}: console errors ${consoleErrors.join(' | ')}`);
+  assert(pageErrors.length === 0, `${browserName} ${width}x${height}: page errors ${pageErrors.join(' | ')}`);
+  await context.close();
 };
 
 for (const [browserName, launcher] of [['chromium', chromium], ['firefox', firefox]] as const) {
   const browser = await launcher.launch({ headless: true });
-  try {
-    await exercise(browser, browserName, 390, 844);
-    await exercise(browser, browserName, 390, 720);
-    await exercise(browser, browserName, 1366, 768);
-  } finally {
-    await browser.close();
+  for (const [width, height] of [[390, 844], [390, 720], [1366, 768]] as const) {
+    await exercise(browserName, browser, width, height);
   }
+  await browser.close();
 }
 
-const failures = results.flatMap((result) => [
-  ...result.consoleErrors.map((error) => `${result.browser} ${result.viewport} console: ${error}`),
-  ...result.pageErrors.map((error) => `${result.browser} ${result.viewport} pageerror: ${error}`),
-]);
 console.log(JSON.stringify({ baseURL, results, failures }, null, 2));
-if (failures.length > 0) process.exitCode = 1;
+if (failures.length) process.exitCode = 1;

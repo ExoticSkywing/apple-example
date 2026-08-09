@@ -68,11 +68,19 @@ npm run dev -- --port 4173
 - 当前实现范围改为用户指定的完整横向 Product Viewer：localnav、手机近景、Action button 功能轨、灵动岛状态、右上关闭按钮、底部展开药丸说明卡、左右切换箭头及滑动/点击状态切换。
 - `RECON/user-baselines/apple-official-mobile-target.jpg` 是用户提供的 Apple 真机截图，优先级高于自动视觉描述。
 
+## 第二次纠偏：手机不是网页 3D 模型
+- 用户再次真机指出 CSS 拼的 iPhone 模型“乱七八糟”；判断成立。手机产品素材差距不能靠继续微调 CSS 假模型解决。
+- 已确认 Apple 原站 `#viewer-actionbutton` 是 `<video>`，不是 WebGL/Three.js/模型查看器；`data-inline-media-basepath` 指向 `viewer-action-button` 动画目录。
+- 小屏媒体契约：H.264，`880×768`，30fps，5秒，150帧；首尾 JPG 同为 `880×768`。
+- 该视频是完整合成媒体：手机 3D 渲染、金属材质、侧键、屏幕壁纸、9:41、动态岛、功能图标轨和连接线全部已烘焙在同一视频画面内。
+- 已删除生产中的 CSS 手绘机身、CSS 假按键、CSS 假壁纸、DOM 假图标轨和 DOM 假动态岛，改为单一官方完整合成媒体的本地研究拷贝。
+- 外层只保留 Apple Viewer 的网页控件：localnav、关闭、底部说明卡、左右 replay 箭头、收起/展开状态。
+
 ## 验证
 - [x] `npm run check`：ESLint、TypeScript、Vite build 全部通过
-- [x] `npm run qa`：Chromium + Firefox，`1366×768`、`390×720`、`390×844`；左右切换 → 关闭收起 → 重新展开 → 自动回到 Action button；console/page error 都为 0
+- [x] `npm run qa`：Chromium + Firefox，`1366×768`、`390×720`、`390×844`；验证视频 `880×768 / 5s`、首交互播放、左右 replay、关闭收起、重新展开；console/page error 都为 0
 - [x] 药丸卡在 Chromium/Gecko 均固定 `316×178`（390px 视口），不存在 Gecko 多 25px 的折行漂移
-- [x] 已生成新候选截图证据（`RECON/screenshots/clone-v2-*`）
+- [x] 已生成新版官方媒体候选截图证据（`RECON/screenshots/clone-v3-official-media-*`）
 - [x] 最终结构门禁：与用户基线属于同一种 Product Viewer；首版自创教程元素已消失
-- [x] 已重新上线到用户批准的远程测试端口 `44120`，并从公网 URL 运行全套 Chromium/Firefox QA，HTTP 与交互均通过。
+- 旧 CSS 假模型版本已撤下；新版完成公网复验后再重新上线 `44120`。
 - 人类最终视觉批准仍由用户完成，代理不自行宣布“完美复刻”。
